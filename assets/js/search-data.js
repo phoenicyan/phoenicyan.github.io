@@ -72,7 +72,18 @@ ninja.data = [{
               handler: () => {
                 window.location.href = "/blog/";
               },
-            },{id: "post-a-post-with-plotly-js",
+            },{id: "post-vibe-coding-a-sql-transpiler",
+        
+          title: "Vibe-Coding a SQL Transpiler",
+        
+        description: "we use highly regarded tools to write a SQL statement transpiler",
+        section: "Posts",
+        handler: () => {
+          
+            window.location.href = "/blog/2025/sql_transpiler/";
+          
+        },
+      },{id: "post-a-post-with-plotly-js",
         
           title: "a post with plotly.js",
         
