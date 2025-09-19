@@ -191,6 +191,7 @@ exclude:
   - purgecss.config.js
   - README.md
   - readme_preview/
+  - assets/jupyter/blog.ipynb
   - vendor
 keep_files:
   - CNAME
@@ -203,7 +204,7 @@ plugins:
   - jekyll-feed
   - jekyll-get-json
   - jekyll-imagemagick
-  - jekyll-jupyter-notebook
+  # - jekyll-jupyter-notebook
   - jekyll-link-attributes
   - jekyll-minifier
   - jekyll-paginate-v2
@@ -232,7 +233,7 @@ sass:
 
 jekyll-minifier:
   compress_javascript: false # set to false since we are using terser as the js minifier
-  exclude: ["robots.txt", "assets/js/search/*.js"]
+  exclude: ["robots.txt", "assets/js/search/*.js", "assets/jupyter/blog.ipynb"]
 
 # -----------------------------------------------------------------------------
 # Terser
