@@ -8,8 +8,6 @@ categories: poasts
 featured: true
 ---
 
-# Vibe Coding SQL Transpiler
-
 <div style="font-style: italic;text-align: right;">
 "The heavens declare the glory of God; and the firmament sheweth his handywork." PS 19:1
 </div>
