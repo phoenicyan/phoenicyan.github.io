@@ -426,12 +426,15 @@ Since the Postgres grammar was basically skipping most symbols, I made the follo
 
 ## Part 2. Internal Representation (IR)
 The internal representation should keep information about a SQL statement in dialect-neutral form. It can be used to output SQL into any desired dialect. The IR could be implemented as a tree-like structure, but for the purpose of this small exercise I used a simple structure with the following fields:
+
 | Field	| Purpose |
 | ----- | ------- | 
-| STMT_TYPE _stt | Statement type defined as: ``enum STMT_TYPE { STT_UNKNOWN, STT_ALTER, STT_CREATE, STT_DELETE, STT_DROP, STT_INSERT, STT_SELECT, STT_SET, STT_SHOW, STT_TRUNCATE, STT_UPDATE, STT_START, STT_COMMIT, STT_ROLLBACK };`` |
-| string _text | The SQL Statement without ``LIMIT/TOP`` clause |
-| string _alt_text | The ``LIMIT/TOP`` clause |
-| size_t _alt_pos | Position in _text where to insert _alt_text |
+| STMT_TYPE&nbsp;_stt | Statement type defined as: `` enum STMT_TYPE { STT_UNKNOWN, STT_ALTER, STT_CREATE, STT_DELETE, STT_DROP, STT_INSERT, STT_SELECT, STT_SET, STT_SHOW, STT_TRUNCATE, STT_UPDATE, STT_START, STT_COMMIT, STT_ROLLBACK };`` |
+| string&nbsp;_text | The SQL Statement without ``LIMIT/TOP`` clause |
+| string&nbsp;_alt_text | The ``LIMIT/TOP`` clause |
+| size_t&nbsp;_alt_pos | Position in _text where to insert _alt_text |
+
+<br>
 
 To populate IR I needed helper functions that transform AST nodes into "build IR" instructions. So I defined a function as:
 ```cpp 
@@ -562,7 +565,7 @@ TEST(TestCase1, TestName5) {
 ```
 
 ## Conclusion
-To makea long story short, I was unable to discover "vibe coding". Thru the entire weekend I observed that Gemini was making lots of assumptions about my intentions and generated anything but not what I wanted. I guess I improved my skill in telling Gemini what I wanted by asking it do very primitive assignments. In a few cases the AI saved me a bit of time, e.g. "write procedure to split text in vector of lines", or "write procedure to iterate all files in specified path and read the files as text". The AI was useful in teaching me about the PEG parser, the Visitor pattern, etc. But the "vibe coding" is the same as spherical cow in vacuum.
+To make a long story short, I was unable to discover "vibe coding". Thru the entire weekend I observed that Gemini was making lots of assumptions about my intentions and generated anything but not what I wanted. I guess I improved my skill in telling Gemini what I wanted by asking it do very primitive assignments. In a few cases the AI saved me a bit of time, e.g. "write procedure to split text in vector of lines", or "write procedure to iterate all files in specified path and read the files as text". The AI was useful in teaching me about the PEG parser, the Visitor pattern, etc. But the "vibe coding" is the same as spherical cow in vacuum.
 Bottom line, AI coding assistants are just "another tool" and are not as capable yet as they get advertised. It will take some time to enhance the AI and to train software engineers skill for using the tool.
 
 <!-- Vibe coding fucking sucks. Gemini has all these retarded assumptions about intentions that never occured to me, never generated anything resembling what I wanted. I ended up having to develop an entirely new skillset (becoming one of those PROOMPTERS) just so I could start saving time. But at that point the time investment was so hilariously expensive that this anyway useless for me. I guess the only thing i"m happy about is that a few more trees in the Amazon will probably burn down because of all the water use of my retarded prompts. Thank you for YOUR ATTENTION TO THIS MATTER...
