@@ -40,7 +40,7 @@ After watching couple of free online courses about the absolute best practices f
 1. Modify AST visitor to print SQL in specific dialect.
 
 ### Postgres PEG parser
-First, a request to Gemini resulted in this nice prototype that I tested in a [Yhirhose's PEGlib Playground](https://yhirose.github.io/cpp-peglib/). It is so straightforward that I asked Gemini to not comment or explain it:
+First, a request to Gemini resulted in this nice prototype that I tested in a [Yhirose's PEGlib Playground](https://yhirose.github.io/cpp-peglib/). It is so straightforward that I asked Gemini to not comment or explain it:
 ```
 Start <- Content EOI
 
@@ -155,7 +155,7 @@ EOS <- ';'                   # End of Statement
 > **_NOTE:_** I added rule MLC2 to treat any text inside $$ tags as multiline comment.
 
 Sample text and AST:
-```   
+```
 CREATE FUNCTION voidtest1(a int) RETURNS VOID LANGUAGE SQL AS
 $$ SELECT a + 1 $$;
 SELECT voidtest1(42);
