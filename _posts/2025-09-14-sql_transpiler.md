@@ -13,12 +13,12 @@ featured: true
 </div>
 
 
-## Intro
-I have been hearing stories about various AI assistants that help in writing code. It brings so much joy that it was called "vibe coding"[^1]. So, I wanted to try it myself in a small weekend project just to see how it works. I chose an AI from the most reputable vendor (imho): gemini.google.com. But I guess I could get similar results with a different AI vendor as well.
-I limited goals of my project to:
-1. Implement a parser that understands couple of SQL dialects (Postgres and T-SQL).
+## Introduction
+At some time during this year, I heard the term "vibe coding"[^1]. So, I wanted to try it myself in a small project to see how it works. Also I wanted to demonstrate some of my ideas for a SQL transplilation (conversion between Postgres and T-SQL dialects). I chose an AI from one of the most reputable vendors (imho): gemini.google.com. However, I could achieve similar results with a different AI vendor as well.
+I limited the goals of my project to:
+1. Implement a parser that understands a couple of SQL dialects (Postgres and T-SQL).
 1. Implement a builder that converts AST into an internal representation of a SQL statement.
-1. Implement output statement generator in desired dialect.
+1. Implement the output statement generator in the desired dialect.
 
 For example, the Transpiler should be able to convert a T-SQL statement such as 
 ```sql 
@@ -28,19 +28,19 @@ into an equivalent Postgres statement
 ```sql 
 SELECT max("dbo"."col1") FROM "dbo"."tbl" LIMIT 10
 ```
-As an additional benefit of this exercise I wanted to learn about a modern parsing system. After learning about lex/yacc at college many years ago, I only had some experience with Gold parser back in beginning of 2000s. I also knew that using LR(k) parsers such as Antlr4 is out of question for very simple reason - it has unpredictable parsing time and tons of other problems such as reduce conflicts that are very hard to resolve. I used the powerful LMGTFY to find a modern parsing tool called PEG, and its C++ variant on github called cpp-peglib. 
+As an additional benefit of this exercise, I wanted to learn about a modern parsing system. After learning about lex/yacc at college many years ago, I only had some experience with the Gold parser back in the beginning of the 2000s. I also knew that using LR(k) parsers, such as Antlr4, was out of the question for a simple reason - it has unpredictable parsing time and numerous other problems, including "reduce-reduce" conflicts that are very hard to resolve. I used the powerful LMGTFY to find a modern parsing tool called PEG, along with its C++ variant, cpp-peglib, on GitHub.  
 
 [^1]: Definition: "Vibe coding" is a term for a style of software development that heavily relies on artificial intelligence (AI) to generate code. Instead of writing code line-by-line, the developer describes their goal in natural language, and an AI assistant produces the code. 
 
 ## Part 1. Implementing parser and visitor
-After watching couple of free online courses about the absolute best practices for "vibe coding" I decided to split requests to AI to make very small steps such as
+After watching a couple of free online courses about the absolute best practices for "vibe coding", I decided to split requests to AI to make tiny steps such as
 1. Write PEG grammar to parse arbitrary text consisting of identifiers, literals, numbers separated by punctuation symbols that I found on the keyboard (``~!@#$%^&*=+;:<>\\/,.?|-``), grouped by parenthesis and with optional single line comments (starting with ``--``) and multiple lines comments (contained in ``/*  */``).
-1. Modify the PEG grammar to logically group the identifiers, literals, numbers into statements where a statement starts with a keyword (``ALTER, CREATE, DELETE, DROP, INSERT, SELECT, SET, SHOW, TRUNCATE, UPDATE, START, COMMIT, ROLLBACK``) and ends with a semicolon. If a statement does not start with a keyword then it should be recognized as an unknown statement.
+1. Modify the PEG grammar to logically group the identifiers, literals, and numbers into statements where a statement starts with a keyword (``ALTER, CREATE, DELETE, DROP, INSERT, SELECT, SET, SHOW, TRUNCATE, UPDATE, START, COMMIT, ROLLBACK``) and ends with a semicolon. If a statement does not start with a keyword, then it should be recognized as an unknown statement.
 1. Implement an initial primitive AST visitor that prints the statement(s). The idea is to tweak the visitor later to print AST into a different dialect of SQL than the input dialect.
-1. Modify AST visitor to print SQL in specific dialect.
+1. Modify AST visitor to print SQL in a specific dialect.
 
 ### Postgres PEG parser
-First, a request to Gemini resulted in this nice prototype that I tested in a [Yhirose's PEGlib Playground](https://yhirose.github.io/cpp-peglib/). It is so straightforward that I asked Gemini to not comment or explain it:
+Gemini brought in a valuable prototype that I tested in [Yhirose's PEGlib Playground](https://yhirose.github.io/cpp-peglib/). Its straightforward design encouraged me to ask Gemini to refrain from any additional comments or explanations, allowing me to explore its functionality independently.
 ```
 Start <- Content EOI
 
@@ -78,7 +78,7 @@ EOL <- '\n' / '\r\n' / '\r'
 EOI <- !.
 ```
 
-> **_NOTE:_** Here I learned that ~ at start of a rule marks it as a "silent rule", i.e. a rule that is not included into AST.
+> **_NOTE:_** Here I learned that ~ at the start of a rule marks it as a "silent rule", i.e., a rule that is not included in the AST.
 
 Sample text and AST:
 ```
@@ -111,7 +111,7 @@ SELECT max("col1") FROM "tbl" LIMIT 10;SELECT 1;
     - EOI ()
 ```
 
-Then I slightly modified the grammar to treat ``;`` as special symbol that separates statements, and introduced the Keyword rule that can tell me which statement type is used:
+Then I slightly modified the grammar to treat ``;`` as a special symbol that separates statements, and introduced the Keyword rule that can tell me which statement type is used:
 ```    
 Statements <- EOS* (Statement EOS)* Statement? EOI
 
@@ -152,7 +152,7 @@ EOI <- !.                    # End of Input
 EOS <- ';'                   # End of Statement
 ```
 
-> **_NOTE:_** I added rule MLC2 to treat any text inside $$ tags as multiline comment.
+> **_NOTE:_** I added rule MLC2 to treat any text inside $$ tags as a multiline comment.
 
 Sample text and AST:
 ```
@@ -180,55 +180,109 @@ SELECT voidtest1(42);
     + Statement
 ```
 
-<<fish>> At this point I got curious if it is possible to handle dynamic tags similar to a C++ multiline literals: `` R"xyz( ... )xyz"``, or similar to Postgres function body wrappers:
-```sql
-create function square(x int4) returns int4 as
-$xyz$
-begin
-    return x * x;
-end
-$xyz$ language plpgsql;
-```
+[comment]: <> (> |---|---| )
+[comment]: <> (> | ![red herring](/assets/img/redher_sm.jpg) | At this point, I became curious whether it is possible to handle dynamic tags similar to C++ multiline literals: <br> )``R&quot;xyz( ... )xyz&quot;`` or similar to Postgres function body wrappers: |
+[comment]: <> (>)
+[comment]: <> (> ```sql )
+[comment]: <> (> create function square(x int4) returns int4 as)
+[comment]: <> (> $xyz$)
+[comment]: <> (> begin)
+[comment]: <> (>     return x * x;)
+[comment]: <> (> end)
+[comment]: <> (> $xyz$ language plpgsql;)
+[comment]: <> (> ```)
+[comment]: <> (> )
+[comment]: <> (> Gemini suggested this variant:)
+[comment]: <> (> ```)
+[comment]: <> (> DollarQuotedString <- StartTag Content EndTag)
+[comment]: <> (> StartTag <- &apos;&dollar;&apos; Tag? &apos;&dollar;&apos;)
+[comment]: <> (> EndTag <- &apos;&dollar;&apos; Tag? &apos;&dollar;&apos; &{ match(Tag, StartTag.Tag) })
+[comment]: <> (> Tag <- < [a-zA-Z_0-9]* >)
+[comment]: <> (> Content <- (!EndTag .)*)
+[comment]: <> (> ```)
+[comment]: <> (> )
+[comment]: <> (> But then it added the comment &quot;cpp-peglib does not support semantic predicates in the way I demonstrated with the ``&{...}`` syntax. That syntax is a powerful but )non-standard extension to PEGs that allows for dynamic checks. Many online PEG tools, including cpp-peglib, stick to the core PEG operators.&quot;
+[comment]: <> (> As next logical step, I asked this question on yhirose github page, and immediately got answer from mingodad that cpp-peglib provides mechanism called Capture/)Backtrace. He also provided the example:
+[comment]: <> (> )
+[comment]: <> (> ```)
+[comment]: <> (> CreateFunc <- Header Body Language &apos;;&apos;)
+[comment]: <> (> Header <- &apos;CREATE&apos;i &apos;FUNCTION&apos;i (!&apos;RETURNS&apos;i .)+ &apos;RETURNS&apos;i (!&apos;AS&apos;i .)+ &apos;AS&apos;i)
+[comment]: <> (> Body <- DollarQuotedString)
+[comment]: <> (> Language <- &apos;LANGUAGE&apos;i (!&apos;;&apos; .)+)
+[comment]: <> (> DollarQuotedString <- $(StartTag Content EndTag))
+[comment]: <> (> StartTag <- <&apos;&dollar;&apos; $Tag<Separator> &apos;&dollar;&apos;>)
+[comment]: <> (> EndTag <- <&apos;&dollar;&apos; $Tag &apos;&dollar;&apos;>)
+[comment]: <> (> Separator <- (!&apos;&dollar;&apos; .)*)
+[comment]: <> (> Content <- $((!EndTag .)*))
+[comment]: <> (> )
+[comment]: <> (> %whitespace <- [ \t\r\n]*)
+[comment]: <> (> ```)
+[comment]: <> (> )
+[comment]: <> (> With the resulting AST:)
+[comment]: <> (> )
+[comment]: <> (> ```)
+[comment]: <> (> + CreateFunc)
+[comment]: <> (>     - Header (create function square(x int4) returns int4 as))
+[comment]: <> (>     + Body/0[DollarQuotedString])
+[comment]: <> (>     - StartTag ($xyz$))
+[comment]: <> (>     - Content (begin)
+[comment]: <> (>     return x * x;)
+[comment]: <> (> end)
+[comment]: <> (> ))
+[comment]: <> (>     - EndTag ($xyz$))
+[comment]: <> (>     - Language (language plpgsql))
+[comment]: <> (> ```)
 
-Gemini suggested this variant:
-```
-DollarQuotedString <- StartTag Content EndTag
-StartTag <- '$' Tag? '$'
-EndTag <- '$' Tag? '$' &{ match(Tag, StartTag.Tag) }
-Tag <- < [a-zA-Z_0-9]* >
-Content <- (!EndTag .)*
-```
-
-But then it added the comment "cpp-peglib does not support semantic predicates in the way I demonstrated with the ``&{...}`` syntax. That syntax is a powerful but non-standard extension to PEGs that allows for dynamic checks. Many online PEG tools, including cpp-peglib, stick to the core PEG operators."
-As next logical step, I asked this question on yhirose github page, and immediately got answer from mingodad that cpp-peglib provides mechanism called Capture/Backtrace. He also provided the example:
-```
-CreateFunc <- Header Body Language ';'
-Header <- 'CREATE'i 'FUNCTION'i (!'RETURNS'i .)+ 'RETURNS'i (!'AS'i .)+ 'AS'i
-Body <- DollarQuotedString
-Language <- 'LANGUAGE'i (!';' .)+
-DollarQuotedString <- $(StartTag Content EndTag)
-StartTag <- <'$' $Tag<Separator> '$'>
-EndTag <- <'$' $Tag '$'>
-Separator <- (!'$' .)*
-Content <- $((!EndTag .)*)
-
-%whitespace <- [ \t\r\n]*
-```
-
+<table><tbody><tr>
+<td style="display: block;"><img src="/assets/img/redher_sm.jpg" alt="red herring"></td><td><sub>At this point, I became curious whether it is possible to handle dynamic tags similar to C++ multiline literals: <br> ``R"xyz( ... )xyz"`` or similar to Postgres function body wrappers:</sub><br>
+<pre style="line-height: 0.8em;margin: 0;font-size: 0.7em;"><code class="language-sql">
+create function square(x int4) returns int4 as<br>
+$xyz$<br>
+begin<br>
+    return x * x;<br>
+end<br>
+$xyz$ language plpgsql;<br>
+</code></pre><sub>
+Gemini suggested this variant:<br>
+</sub><pre style="line-height: 0.8em;margin: 0;font-size: 0.7em;"><code>
+DollarQuotedString <- StartTag Content EndTag<br>
+StartTag <- '$' Tag? '$'<br>
+EndTag <- '$' Tag? '$' &{ match(Tag, StartTag.Tag) }<br>
+Tag <- < [a-zA-Z_0-9]* ><br>
+Content <- (!EndTag .)*<br>
+</code></pre><sub>
+<br>
+But then it added the comment "cpp-peglib does not support semantic predicates in the way I demonstrated with the ``&{...}`` syntax. That syntax is a powerful but non-standard extension to PEGs that allows for dynamic checks. Many online PEG tools, including cpp-peglib, stick to the core PEG operators."<br>
+As next logical step, I asked this question on yhirose github page, and immediately got answer from mingodad that cpp-peglib provides mechanism called Capture/Backtrace. He also provided the example:<br>
+<br>
+</sub><pre style="line-height: 0.8em;margin: 0;font-size: 0.7em;"><code>
+CreateFunc <- Header Body Language ';'<br>
+Header <- 'CREATE'i 'FUNCTION'i (!'RETURNS'i .)+ 'RETURNS'i (!'AS'i .)+ 'AS'i<br>
+Body <- DollarQuotedString<br>
+Language <- 'LANGUAGE'i (!';' .)+<br>
+DollarQuotedString <- $(StartTag Content EndTag)<br>
+StartTag <- <'$' $Tag&lt;Separator&gt; '$'><br>
+EndTag <- <'$' $Tag '$'><br>
+Separator <- (!'$' .)*<br>
+Content <- $((!EndTag .)*)<br>
+<br>
+%whitespace <- [ \t\r\n]*<br>
+</code></pre><br><sub>
 With the resulting AST:
-```
-+ CreateFunc
-    - Header (create function square(x int4) returns int4 as)
-    + Body/0[DollarQuotedString]
-    - StartTag ($xyz$)
-    - Content (begin
-    return x * x;
-end
-)
-    - EndTag ($xyz$)
-    - Language (language plpgsql)
-```
-<<>>
+</sub><pre style="line-height: 0.8em;margin: 0;font-size: 0.7em;"><code>
++ CreateFunc<br>
+    - Header (create function square(x int4) returns int4 as)<br>
+    + Body/0[DollarQuotedString]<br>
+    - StartTag ($xyz$)<br>
+    - Content (begin<br>
+    return x * x;<br>
+end<br>
+)<br>
+    - EndTag ($xyz$)<br>
+    - Language (language plpgsql)<br>
+</code></pre>
+</td>
+</tr></tbody></table><br>
 
 Third, Gemini suggested: "In C++, the best way to process an Abstract Syntax Tree (AST) is by using the Visitor pattern and recursive traversal. This approach combines a well-established design pattern with a fundamental algorithm to handle the tree's hierarchical structure effectively." It defined the Visitor interface as:
 ```cpp
@@ -259,31 +313,58 @@ void CustomType::Accept(IParseTreeVisitor* pVisitor) {
     pVisitor->Visit(*reinterpret_cast<CustomAst*>(this));
 }
 ```
-<<fish>> I thought that I might need a method to obtain a substring that created the given AST node, so I  wrote the following method and placed it inside IParseTreeVisitor for code reuse in derived classes:
-```cpp
-std::string getLRTerm(const CustomAst& ast) {
-    if (ast.is_token)
-        return std::string(ast.token);
 
-    if (0 == ast.length)
-        return "";
 
-    auto pos = ast.position;
-    auto len = ast.length;
+[comment]: <> (|---|---|)
+[comment]: <> (| ![red herring](/assets/img/redher_sm.jpg) | I thought that I might need a method to obtain a substring that created the given AST node, so I  wrote the following method and placed it inside IParseTreeVisitor for code reuse in derived classes: |)
+[comment]: <> ( )
+[comment]: <> (<pre style="font-size: 0.6em;"><code class="language-cpp">)
+[comment]: <> (std::string getLRTerm(const CustomAst& ast) {)
+[comment]: <> (    if (ast.is_token))
+[comment]: <> (        return std::string(ast.token);)
+[comment]: <> ( )
+[comment]: <> (    if (0 == ast.length))
+[comment]: <> (        return &quot;&quot;;)
+[comment]: <> ( )
+[comment]: <> (    auto pos = ast.position;)
+[comment]: <> (    auto len = ast.length;)
+[comment]: <> ( )
+[comment]: <> (    if (ast.tag != ast.original_tag))
+[comment]: <> (    {)
+[comment]: <> (        pos = ast.nodes[0]->position;)
+[comment]: <> (        len = ast.nodes[ast.nodes.size() - 1]->position)
+[comment]: <> (    + ast.nodes[ast.nodes.size() - 1]->length - pos;)
+[comment]: <> (    })
+[comment]: <> ( )
+[comment]: <> (    return m_originalStmt.substr(pos, len);)
+[comment]: <> (})
+[comment]: <> (</code></pre>)
+[comment]: <> (<sub>The ``ast.nodes[0]`` is left child node (L) and the ``ast.nodes[ast.nodes.size() - 1]``  is right child node (R). Later I realized that this method worked for a single line input only. I fixed it for a multiline text, but soon realized that I did not need it.</sub>)
 
-    if (ast.tag != ast.original_tag)
-    {
-        pos = ast.nodes[0]->position;
-        len = ast.nodes[ast.nodes.size() - 1]->position
-    + ast.nodes[ast.nodes.size() - 1]->length - pos;
-    }
-
-    return m_originalStmt.substr(pos, len);
-}
-```
-The ``ast.nodes[0]`` is left child node (L) and the ``ast.nodes[ast.nodes.size() - 1]``  is right child node (R). Later I realized that this method worked for a single line input only. I fixed it for a multiline text, but soon realized that I did not need it.
-<<>>
-
+<table><tbody><tr>
+<td style="display: block;"><img src="/assets/img/redher_sm.jpg" alt="red herring"></td><td><sub>I thought that I might need a method to obtain a substring that created the given AST node, so I  wrote the following method and placed it inside IParseTreeVisitor for code reuse in derived classes:</sub><br>
+<pre style="line-height: 0.8em;margin: 0;font-size: 0.7em;"><code class="language-cpp">
+ std::string getLRTerm(const CustomAst& ast) {<br>
+     &nbsp;&nbsp;if (ast.is_token)<br>
+         &nbsp;&nbsp;&nbsp;&nbsp;return std::string(ast.token);<br>
+ <br>
+     &nbsp;&nbsp;if (0 == ast.length)<br>
+         &nbsp;&nbsp;&nbsp;&nbsp;return "";<br>
+ <br>
+     &nbsp;&nbsp;auto pos = ast.position;<br>
+     &nbsp;&nbsp;auto len = ast.length;<br>
+ <br>
+     &nbsp;&nbsp;if (ast.tag != ast.original_tag)<br>
+     &nbsp;&nbsp;{<br>
+         &nbsp;&nbsp;&nbsp;&nbsp;pos = ast.nodes[0]->position;<br>
+         &nbsp;&nbsp;&nbsp;&nbsp;len = ast.nodes[ast.nodes.size() - 1]->position + ast.nodes[ast.nodes.size() - 1]->length - pos;<br>
+     &nbsp;&nbsp;}<br>
+ <br>
+     &nbsp;&nbsp;return m_originalStmt.substr(pos, len);<br>
+ }
+ </code></pre><sub>The <code class="language-plaintext highlighter-rouge">ast.nodes[0]</code> is left child node (L) and the <code class="language-plaintext highlighter-rouge">ast.nodes[ast.nodes.size() - 1]</code>  is right child node (R). Later I realized that this method worked for a single line input only. I fixed it for a multiline text, but soon realized that I did not need it.</sub>
+</td>
+</tr></tbody></table><br>
 
 The final cherry on top idea comes from observation of AST:
 ```sql
@@ -563,8 +644,8 @@ TEST(TestCase1, TestName5) {
 ```
 
 ## Conclusion
-To make a long story short, I was unable to discover "vibe coding". Thru the entire weekend I observed that Gemini was making lots of assumptions about my intentions and generated anything but not what I wanted. I guess I improved my skill in telling Gemini what I wanted by asking it do very primitive assignments. In a few cases the AI saved me a bit of time, e.g. "write procedure to split text in vector of lines", or "write procedure to iterate all files in specified path and read the files as text". The AI was useful in teaching me about the PEG parser, the Visitor pattern, etc. But the "vibe coding" is the same as spherical cow in vacuum.
-Bottom line, AI coding assistants are just "another tool" and are not as capable yet as they get advertised. It will take some time to enhance the AI and to train software engineers skill for using the tool.
+I described my journey with Gemini on creating a SQL transpiler. Gemini was making numerous assumptions about my intentions and generated something entirely different from what I wanted. But I definitely improved my skills of telling Gemini what I wanted by asking it to do very primitive assignments. In a few cases, the AI saved me a bit of time, e.g., "write procedure to split text in vector of lines" or "write procedure to iterate all files in specified path and read the files as text." The AI helped teach me about the PEG parser, the Visitor pattern, etc. However, the "vibe coding" is the same as the spherical cow in a vacuum.  
+The idea behind the SQL Transpiler was to start with a very basic parser that extracts identifiers, numbers, and string literals, and then add various rules, such as LIMIT/TOP. This idea could be fruitful, and I would appreciate your feedback (my contact is phoenicyan at gmail dot com). I want to learn alternative ideas for a transpiler, especially from people who have had previous experience in the creation of transpilers.
 
 <!-- Vibe coding fucking sucks. Gemini has all these retarded assumptions about intentions that never occured to me, never generated anything resembling what I wanted. I ended up having to develop an entirely new skillset (becoming one of those PROOMPTERS) just so I could start saving time. But at that point the time investment was so hilariously expensive that this anyway useless for me. I guess the only thing i"m happy about is that a few more trees in the Amazon will probably burn down because of all the water use of my retarded prompts. Thank you for YOUR ATTENTION TO THIS MATTER...
 
