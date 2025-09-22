@@ -72,9 +72,9 @@ ninja.data = [{
               handler: () => {
                 window.location.href = "/blog/";
               },
-            },{id: "post-vibe-coding-a-sql-transpiler",
+            },{id: "post-vibe-coding-a-sql-transpiler-part-1",
         
-          title: "Vibe-Coding a SQL Transpiler",
+          title: "Vibe-Coding a SQL Transpiler, Part 1",
         
         description: "we use highly regarded tools to write a SQL statement transpiler",
         section: "Posts",
