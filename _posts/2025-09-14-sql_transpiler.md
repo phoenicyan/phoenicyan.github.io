@@ -1,6 +1,6 @@
 ---
 layout: post
-title: Vibe-Coding a SQL Transpiler
+title: Vibe-Coding a SQL Transpiler, Part 1
 date: 2025-09-14 04:39:00-0700
 description: we use highly regarded tools to write a SQL statement transpiler
 tags: AI vibe-coded SQL 
@@ -14,8 +14,7 @@ featured: true
 
 
 ## Introduction
-At some time during this year, I heard the term "vibe coding"[^1]. So, I wanted to try it myself in a small project to see how it works. Also I wanted to demonstrate some of my ideas for a SQL transplilation (conversion between Postgres and T-SQL dialects). I chose an AI from one of the most reputable vendors (imho): gemini.google.com. However, I could achieve similar results with a different AI vendor as well.
-I limited the goals of my project to:
+During this year I heard the term "vibe coding"[^1]. So, I wanted to try it myself in a small project to see how it works. Also I wanted to demonstrate some of my ideas for a SQL transplilation[^2] (conversion between Postgres and T-SQL dialects). I chose an AI from one of the most reputable vendors: gemini.google.com. I limited the goals of my project to:
 1. Implement a parser that understands a couple of SQL dialects (Postgres and T-SQL).
 1. Implement a builder that converts AST into an internal representation of a SQL statement.
 1. Implement the output statement generator in the desired dialect.
@@ -28,11 +27,15 @@ into an equivalent Postgres statement
 ```sql 
 SELECT max("dbo"."col1") FROM "dbo"."tbl" LIMIT 10
 ```
-As an additional benefit of this exercise, I wanted to learn about a modern parsing system. After learning about lex/yacc at college many years ago, I only had some experience with the Gold parser back in the beginning of the 2000s. I also knew that using LR(k) parsers, such as Antlr4, was out of the question for a simple reason - it has unpredictable parsing time and numerous other problems, including "reduce-reduce" conflicts that are very hard to resolve. I used the powerful LMGTFY to find a modern parsing tool called PEG, along with its C++ variant, cpp-peglib, on GitHub.  
+As an additional benefit of this exercise, I wanted to learn about a modern parsing system. After learning about lex/yacc at college many years ago, I only had some experience with the Gold parser back in the beginning of the 2000s. And I also knew from my previous attempt to learn Antlr4 - it has unpredictable parsing time and numerous other problems, including "reduce-reduce" conflicts that are very hard to resolve. I googled around and found a modern parsing tool called PEG, along with its C++ variant, cpp-peglib, on GitHub.
+
+Source code for this project is available [here](https://github.com/phoenicyan/sql_transpiler/).
 
 [^1]: Definition: "Vibe coding" is a term for a style of software development that heavily relies on artificial intelligence (AI) to generate code. Instead of writing code line-by-line, the developer describes their goal in natural language, and an AI assistant produces the code. 
 
-## Part 1. Implementing parser and visitor
+[^2]: Definition: A transpiler is a type of program, also known as a source-to-source compiler or transcompiler, that takes the source code of a program in one programming language and converts it into equivalent source code in a different, but generally similar, programming language. This process allows developers to use modern or specialized language features and have their code run in environments that don't support them, or to migrate legacy code to newer platforms.
+
+## Act 1. Implementing parser and visitor
 After watching a couple of free online courses about the absolute best practices for "vibe coding", I decided to split requests to AI to make tiny steps such as
 1. Write PEG grammar to parse arbitrary text consisting of identifiers, literals, numbers separated by punctuation symbols that I found on the keyboard (``~!@#$%^&*=+;:<>\\/,.?|-``), grouped by parenthesis and with optional single line comments (starting with ``--``) and multiple lines comments (contained in ``/*  */``).
 1. Modify the PEG grammar to logically group the identifiers, literals, and numbers into statements where a statement starts with a keyword (``ALTER, CREATE, DELETE, DROP, INSERT, SELECT, SET, SHOW, TRUNCATE, UPDATE, START, COMMIT, ROLLBACK``) and ends with a semicolon. If a statement does not start with a keyword, then it should be recognized as an unknown statement.
@@ -503,7 +506,7 @@ Since the Postgres grammar was basically skipping most symbols, I made the follo
     TopClause <- 'TOP'i Spacing Number { no_ast_opt }
 ```
 
-## Part 2. Internal Representation (IR)
+## Act 2. Internal Representation (IR)
 The internal representation should keep information about a SQL statement in dialect-neutral form. It can be used to output SQL into any desired dialect. The IR could be implemented as a tree-like structure, but for the purpose of this small exercise I used a simple structure with the following fields:
 
 | Field	| Purpose |
@@ -567,7 +570,7 @@ void ProcessInstruction(const OutputInstruction& instruction) {
 The final piece was to include calls to the transformers into the ``Visitor``.
 
 
-## Part 3. Implementing output generator and testing
+## Act 3. Implementing output generator and testing
 General solution would be to iterate thru all transformers to generate output. But for POC purposes I modified ``CParseTreeVisitor::Visit()`` to invoke ``transformer[0]`` for tokens (aka terminals) and to invoke ``transformer[1]`` for non-terminals:
 ```cpp
 OutputInstruction instruction;
@@ -644,8 +647,9 @@ TEST(TestCase1, TestName5) {
 ```
 
 ## Conclusion
-I described my journey with Gemini on creating a SQL transpiler. Gemini was making numerous assumptions about my intentions and generated something entirely different from what I wanted. But I definitely improved my skills of telling Gemini what I wanted by asking it to do very primitive assignments. In a few cases, the AI saved me a bit of time, e.g., "write procedure to split text in vector of lines" or "write procedure to iterate all files in specified path and read the files as text." The AI helped teach me about the PEG parser, the Visitor pattern, etc. However, the "vibe coding" is the same as the spherical cow in a vacuum.  
-The idea behind the SQL Transpiler was to start with a very basic parser that extracts identifiers, numbers, and string literals, and then add various rules, such as LIMIT/TOP. This idea could be fruitful, and I would appreciate your feedback (my contact is phoenicyan at gmail dot com). I want to learn alternative ideas for a transpiler, especially from people who have had previous experience in the creation of transpilers.
+Gemini was making numerous assumptions about my intentions and generated something entirely different from what I wanted. But I definitely improved my skills of telling Gemini what I wanted by asking it to do very primitive assignments. In a few cases, the AI saved me a bit of time, e.g., "write procedure to split text in vector of lines" or "write procedure to iterate all files in specified path and read the files as text." The AI helped teach me about the PEG parser, the Visitor pattern, etc. However, the "vibe coding" is the same as the spherical cow in a vacuum.  
+The idea behind the SQL Transpiler was to start with a very basic parser that extracts identifiers, numbers, and string literals, and then add various rules, such as LIMIT/TOP. This idea could be fruitful, and I would appreciate your feedback (my contact is phoenicyan at gmail dot com). I want to learn alternative ideas for a transpiler, especially from people who have had previous experience in the creation of transpilers.  
+In Part 2, I'm excited to share with you a fully functional transpiler that brings this idea to life.
 
 <!-- Vibe coding fucking sucks. Gemini has all these retarded assumptions about intentions that never occured to me, never generated anything resembling what I wanted. I ended up having to develop an entirely new skillset (becoming one of those PROOMPTERS) just so I could start saving time. But at that point the time investment was so hilariously expensive that this anyway useless for me. I guess the only thing i"m happy about is that a few more trees in the Amazon will probably burn down because of all the water use of my retarded prompts. Thank you for YOUR ATTENTION TO THIS MATTER...
 
