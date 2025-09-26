@@ -1,10 +1,10 @@
 ---
 layout: post
-title: Vibe-Coding a SQL Transpiler, Part 1
+title: Using PEG Parser For SQL Transpiler Development, Part 1
 date: 2025-09-14 04:39:00-0700
 description: we use highly regarded tools to write a SQL statement transpiler
-tags: AI vibe-coded SQL 
-categories: poasts
+tags: SQL PEG Cpp
+categories: software
 featured: true
 ---
 
@@ -14,7 +14,7 @@ featured: true
 
 
 ## Introduction
-During this year I heard the term "vibe coding"[^1]. So, I wanted to try it myself in a small project to see how it works. Also I wanted to demonstrate some of my ideas for a SQL transplilation[^2] (conversion between Postgres and T-SQL dialects). I chose an AI from one of the most reputable vendors: gemini.google.com. I limited the goals of my project to:
+I demonstrate some of my ideas for a SQL transplilation[^1] (conversion between Postgres and T-SQL dialects). I chose an AI Code Writing Assisstant from one of the most reputable vendors: gemini.google.com. The goals of my project are:
 1. Implement a parser that understands a couple of SQL dialects (Postgres and T-SQL).
 1. Implement a builder that converts AST into an internal representation of a SQL statement.
 1. Implement the output statement generator in the desired dialect.
@@ -31,9 +31,7 @@ As an additional benefit of this exercise, I wanted to learn about a modern pars
 
 Source code for this project is available [here](https://github.com/phoenicyan/sql_transpiler/).
 
-[^1]: Definition: "Vibe coding" is a term for a style of software development that heavily relies on artificial intelligence (AI) to generate code. Instead of writing code line-by-line, the developer describes their goal in natural language, and an AI assistant produces the code. 
-
-[^2]: Definition: A transpiler is a type of program, also known as a source-to-source compiler or transcompiler, that takes the source code of a program in one programming language and converts it into equivalent source code in a different, but generally similar, programming language. This process allows developers to use modern or specialized language features and have their code run in environments that don't support them, or to migrate legacy code to newer platforms.
+[^1]: Definition: A transpiler is a type of program, also known as a source-to-source compiler or transcompiler, that takes the source code of a program in one programming language and converts it into equivalent source code in a different, but generally similar, programming language. This process allows developers to use modern or specialized language features and have their code run in environments that don't support them, or to migrate legacy code to newer platforms.
 
 ## Act 1. Implementing parser and visitor
 After watching a couple of free online courses about the absolute best practices for "vibe coding", I decided to split requests to AI to make tiny steps such as
