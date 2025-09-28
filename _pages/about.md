@@ -29,7 +29,7 @@ Life milestones:
 
 - **In kindergarten**, I learned: when you are about to be drowned, someone will come to rescue you and carry you out of the danger.
 - **In school**, if you put more effort and hard work than most people around you, you will be rewarded.
-- **In high school**, ask questions on how to achieve your goal, do not find excuses or state a problem.
+- **In high school**, ask questions on how to achieve your goal, do not find excuses or complain about problems.
 - **In college**, nobody cares about you, so survive and find something interesting to do; teach yourself.
 - **Early work life**: learn who you are, fight for what you believe is true, and pray to God to save you from depression.
 - **Family life**: sacrifice yourself for others and enjoy watching your kids grow.
