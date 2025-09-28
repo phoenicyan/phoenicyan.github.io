@@ -12,21 +12,26 @@ featured: true
 "The heavens declare the glory of God; and the firmament sheweth his handywork." PS 19:1
 </div>
 
-
 ## Introduction
+
 I demonstrate some of my ideas for a SQL transplilation[^1] (conversion between Postgres and T-SQL dialects). I chose an AI Code Writing Assisstant from one of the most reputable vendors: gemini.google.com. The goals of my project are:
+
 1. Implement a parser that understands a couple of SQL dialects (Postgres and T-SQL).
 1. Implement a builder that converts AST into an internal representation of a SQL statement.
 1. Implement the output statement generator in the desired dialect.
 
-For example, the Transpiler should be able to convert a T-SQL statement such as 
-```sql 
-SELECT TOP 10 max([dbo].[col1]) FROM [dbo].[tbl] 
+For example, the Transpiler should be able to convert a T-SQL statement such as
+
+```sql
+SELECT TOP 10 max([dbo].[col1]) FROM [dbo].[tbl]
 ```
+
 into an equivalent Postgres statement
-```sql 
+
+```sql
 SELECT max("dbo"."col1") FROM "dbo"."tbl" LIMIT 10
 ```
+
 As an additional benefit of this exercise, I wanted to learn about a modern parsing system. After learning about lex/yacc at college many years ago, I only had some experience with the Gold parser back in the beginning of the 2000s. And I also knew from my previous attempt to learn Antlr4 - it has unpredictable parsing time and numerous other problems, including "reduce-reduce" conflicts that are very hard to resolve. I googled around and found a modern parsing tool called PEG, along with its C++ variant, cpp-peglib, on GitHub.
 
 Source code for this project is available [here](https://github.com/phoenicyan/sql_transpiler/).
@@ -34,14 +39,18 @@ Source code for this project is available [here](https://github.com/phoenicyan/s
 [^1]: Definition: A transpiler is a type of program, also known as a source-to-source compiler or transcompiler, that takes the source code of a program in one programming language and converts it into equivalent source code in a different, but generally similar, programming language. This process allows developers to use modern or specialized language features and have their code run in environments that don't support them, or to migrate legacy code to newer platforms.
 
 ## Act 1. Implementing parser and visitor
+
 After watching a couple of free online courses about the absolute best practices for "vibe coding", I decided to split requests to AI to make tiny steps such as
-1. Write PEG grammar to parse arbitrary text consisting of identifiers, literals, numbers separated by punctuation symbols that I found on the keyboard (``~!@#$%^&*=+;:<>\\/,.?|-``), grouped by parenthesis and with optional single line comments (starting with ``--``) and multiple lines comments (contained in ``/*  */``).
-1. Modify the PEG grammar to logically group the identifiers, literals, and numbers into statements where a statement starts with a keyword (``ALTER, CREATE, DELETE, DROP, INSERT, SELECT, SET, SHOW, TRUNCATE, UPDATE, START, COMMIT, ROLLBACK``) and ends with a semicolon. If a statement does not start with a keyword, then it should be recognized as an unknown statement.
+
+1. Write PEG grammar to parse arbitrary text consisting of identifiers, literals, numbers separated by punctuation symbols that I found on the keyboard (`~!@#$%^&*=+;:<>\\/,.?|-`), grouped by parenthesis and with optional single line comments (starting with `--`) and multiple lines comments (contained in `/*  */`).
+1. Modify the PEG grammar to logically group the identifiers, literals, and numbers into statements where a statement starts with a keyword (`ALTER, CREATE, DELETE, DROP, INSERT, SELECT, SET, SHOW, TRUNCATE, UPDATE, START, COMMIT, ROLLBACK`) and ends with a semicolon. If a statement does not start with a keyword, then it should be recognized as an unknown statement.
 1. Implement an initial primitive AST visitor that prints the statement(s). The idea is to tweak the visitor later to print AST into a different dialect of SQL than the input dialect.
 1. Modify AST visitor to print SQL in a specific dialect.
 
 ### Postgres PEG parser
+
 Gemini brought in a valuable prototype that I tested in [Yhirose's PEGlib Playground](https://yhirose.github.io/cpp-peglib/). Its straightforward design encouraged me to ask Gemini to refrain from any additional comments or explanations, allowing me to explore its functionality independently.
+
 ```
 Start <- Content EOI
 
@@ -82,6 +91,7 @@ EOI <- !.
 > **_NOTE:_** Here I learned that ~ at the start of a rule marks it as a "silent rule", i.e., a rule that is not included in the AST.
 
 Sample text and AST:
+
 ```
 -- sample comment
 SELECT max("col1") FROM "tbl" LIMIT 10;SELECT 1;
@@ -112,8 +122,9 @@ SELECT max("col1") FROM "tbl" LIMIT 10;SELECT 1;
     - EOI ()
 ```
 
-Then I slightly modified the grammar to treat ``;`` as a special symbol that separates statements, and introduced the Keyword rule that can tell me which statement type is used:
-```    
+Then I slightly modified the grammar to treat `;` as a special symbol that separates statements, and introduced the Keyword rule that can tell me which statement type is used:
+
+```
 Statements <- EOS* (Statement EOS)* Statement? EOI
 
 Statement <- (Spacing? Expression )* Spacing?
@@ -156,6 +167,7 @@ EOS <- ';'                   # End of Statement
 > **_NOTE:_** I added rule MLC2 to treat any text inside $$ tags as a multiline comment.
 
 Sample text and AST:
+
 ```
 CREATE FUNCTION voidtest1(a int) RETURNS VOID LANGUAGE SQL AS
 $$ SELECT a + 1 $$;
@@ -182,30 +194,30 @@ SELECT voidtest1(42);
 ```
 
 [comment]: <> (> |---|---| )
-[comment]: <> (> | ![red herring](/assets/img/redher_sm.jpg) | At this point, I became curious whether it is possible to handle dynamic tags similar to C++ multiline literals: <br> )``R&quot;xyz( ... )xyz&quot;`` or similar to Postgres function body wrappers: |
+[comment]: <> (> | ![red herring](/assets/img/redher_sm.jpg) | At this point, I became curious whether it is possible to handle dynamic tags similar to C++ multiline literals: <br> )`R&quot;xyz( ... )xyz&quot;` or similar to Postgres function body wrappers: |
 [comment]: <> (>)
-[comment]: <> (> ```sql )
+[comment]: <> (> `sql )
 [comment]: <> (> create function square(x int4) returns int4 as)
 [comment]: <> (> $xyz$)
 [comment]: <> (> begin)
 [comment]: <> (>     return x * x;)
 [comment]: <> (> end)
 [comment]: <> (> $xyz$ language plpgsql;)
-[comment]: <> (> ```)
+[comment]: <> (> `)
 [comment]: <> (> )
 [comment]: <> (> Gemini suggested this variant:)
-[comment]: <> (> ```)
+[comment]: <> (> `)
 [comment]: <> (> DollarQuotedString <- StartTag Content EndTag)
 [comment]: <> (> StartTag <- &apos;&dollar;&apos; Tag? &apos;&dollar;&apos;)
 [comment]: <> (> EndTag <- &apos;&dollar;&apos; Tag? &apos;&dollar;&apos; &{ match(Tag, StartTag.Tag) })
 [comment]: <> (> Tag <- < [a-zA-Z_0-9]* >)
 [comment]: <> (> Content <- (!EndTag .)*)
-[comment]: <> (> ```)
+[comment]: <> (> `)
 [comment]: <> (> )
-[comment]: <> (> But then it added the comment &quot;cpp-peglib does not support semantic predicates in the way I demonstrated with the ``&{...}`` syntax. That syntax is a powerful but )non-standard extension to PEGs that allows for dynamic checks. Many online PEG tools, including cpp-peglib, stick to the core PEG operators.&quot;
+[comment]: <> (> But then it added the comment &quot;cpp-peglib does not support semantic predicates in the way I demonstrated with the `&{...}` syntax. That syntax is a powerful but )non-standard extension to PEGs that allows for dynamic checks. Many online PEG tools, including cpp-peglib, stick to the core PEG operators.&quot;
 [comment]: <> (> As next logical step, I asked this question on yhirose github page, and immediately got answer from mingodad that cpp-peglib provides mechanism called Capture/)Backtrace. He also provided the example:
 [comment]: <> (> )
-[comment]: <> (> ```)
+[comment]: <> (> `)
 [comment]: <> (> CreateFunc <- Header Body Language &apos;;&apos;)
 [comment]: <> (> Header <- &apos;CREATE&apos;i &apos;FUNCTION&apos;i (!&apos;RETURNS&apos;i .)+ &apos;RETURNS&apos;i (!&apos;AS&apos;i .)+ &apos;AS&apos;i)
 [comment]: <> (> Body <- DollarQuotedString)
@@ -217,11 +229,11 @@ SELECT voidtest1(42);
 [comment]: <> (> Content <- $((!EndTag .)*))
 [comment]: <> (> )
 [comment]: <> (> %whitespace <- [ \t\r\n]*)
-[comment]: <> (> ```)
+[comment]: <> (> `)
 [comment]: <> (> )
 [comment]: <> (> With the resulting AST:)
 [comment]: <> (> )
-[comment]: <> (> ```)
+[comment]: <> (> `)
 [comment]: <> (> + CreateFunc)
 [comment]: <> (>     - Header (create function square(x int4) returns int4 as))
 [comment]: <> (>     + Body/0[DollarQuotedString])
@@ -232,7 +244,7 @@ SELECT voidtest1(42);
 [comment]: <> (> ))
 [comment]: <> (>     - EndTag ($xyz$))
 [comment]: <> (>     - Language (language plpgsql))
-[comment]: <> (> ```)
+[comment]: <> (> `)
 
 <table><tbody><tr>
 <td style="display: block;"><img src="/assets/img/redher_sm.jpg" alt="red herring"></td><td><sub>At this point, I became curious whether it is possible to handle dynamic tags similar to C++ multiline literals: <br> ``R"xyz( ... )xyz"`` or similar to Postgres function body wrappers:</sub><br>
@@ -286,6 +298,7 @@ end<br>
 </tr></tbody></table><br>
 
 Third, Gemini suggested: "In C++, the best way to process an Abstract Syntax Tree (AST) is by using the Visitor pattern and recursive traversal. This approach combines a well-established design pattern with a fundamental algorithm to handle the tree's hierarchical structure effectively." It defined the Visitor interface as:
+
 ```cpp
 class IParseTreeVisitor
 {
@@ -301,7 +314,9 @@ protected:
     const std::string _originalStmt;
 };
 ```
+
 Where CustomAst was defined as:
+
 ```cpp
 class CustomType {
 public:
@@ -315,32 +330,31 @@ void CustomType::Accept(IParseTreeVisitor* pVisitor) {
 }
 ```
 
-
 [comment]: <> (|---|---|)
-[comment]: <> (| ![red herring](/assets/img/redher_sm.jpg) | I thought that I might need a method to obtain a substring that created the given AST node, so I  wrote the following method and placed it inside IParseTreeVisitor for code reuse in derived classes: |)
+[comment]: <> (| ![red herring](/assets/img/redher_sm.jpg) | I thought that I might need a method to obtain a substring that created the given AST node, so I wrote the following method and placed it inside IParseTreeVisitor for code reuse in derived classes: |)
 [comment]: <> ( )
 [comment]: <> (<pre style="font-size: 0.6em;"><code class="language-cpp">)
 [comment]: <> (std::string getLRTerm(const CustomAst& ast) {)
-[comment]: <> (    if (ast.is_token))
-[comment]: <> (        return std::string(ast.token);)
+[comment]: <> ( if (ast.is_token))
+[comment]: <> ( return std::string(ast.token);)
 [comment]: <> ( )
-[comment]: <> (    if (0 == ast.length))
-[comment]: <> (        return &quot;&quot;;)
+[comment]: <> ( if (0 == ast.length))
+[comment]: <> ( return &quot;&quot;;)
 [comment]: <> ( )
-[comment]: <> (    auto pos = ast.position;)
-[comment]: <> (    auto len = ast.length;)
+[comment]: <> ( auto pos = ast.position;)
+[comment]: <> ( auto len = ast.length;)
 [comment]: <> ( )
-[comment]: <> (    if (ast.tag != ast.original_tag))
-[comment]: <> (    {)
-[comment]: <> (        pos = ast.nodes[0]->position;)
-[comment]: <> (        len = ast.nodes[ast.nodes.size() - 1]->position)
-[comment]: <> (    + ast.nodes[ast.nodes.size() - 1]->length - pos;)
-[comment]: <> (    })
+[comment]: <> ( if (ast.tag != ast.original_tag))
+[comment]: <> ( {)
+[comment]: <> ( pos = ast.nodes[0]->position;)
+[comment]: <> ( len = ast.nodes[ast.nodes.size() - 1]->position)
+[comment]: <> ( + ast.nodes[ast.nodes.size() - 1]->length - pos;)
+[comment]: <> ( })
 [comment]: <> ( )
-[comment]: <> (    return m_originalStmt.substr(pos, len);)
+[comment]: <> ( return m_originalStmt.substr(pos, len);)
 [comment]: <> (})
 [comment]: <> (</code></pre>)
-[comment]: <> (<sub>The ``ast.nodes[0]`` is left child node (L) and the ``ast.nodes[ast.nodes.size() - 1]``  is right child node (R). Later I realized that this method worked for a single line input only. I fixed it for a multiline text, but soon realized that I did not need it.</sub>)
+[comment]: <> (<sub>The `ast.nodes[0]` is left child node (L) and the `ast.nodes[ast.nodes.size() - 1]` is right child node (R). Later I realized that this method worked for a single line input only. I fixed it for a multiline text, but soon realized that I did not need it.</sub>)
 
 <table><tbody><tr>
 <td style="display: block;"><img src="/assets/img/redher_sm.jpg" alt="red herring"></td><td><sub>I thought that I might need a method to obtain a substring that created the given AST node, so I  wrote the following method and placed it inside IParseTreeVisitor for code reuse in derived classes:</sub><br>
@@ -368,6 +382,7 @@ void CustomType::Accept(IParseTreeVisitor* pVisitor) {
 </tr></tbody></table><br>
 
 The final cherry on top idea comes from observation of AST:
+
 ```sql
 -- sample comment
 SELECT max("col1") FROM "tbl" LIMIT 10;SELECT 1;
@@ -389,7 +404,9 @@ SELECT max("col1") FROM "tbl" LIMIT 10;SELECT 1;
     + Statement
     - EOI ()
 ```
+
 Spaces, comments, parenthesis are not included in AST. So, there should be a mechanism to insert missing characters from the original input string. I implemented it by counting how many characters were printed, and if next AST node start position is larger than the counter, print the omitted characters from the original string. Here is first version of visitor that prints a string that is the same as the input:
+
 ```cpp
 class CParseTreeVisitor : public IParseTreeVisitor {
     size_t _printedCount;
@@ -404,7 +421,7 @@ public:
         default:
             for (const auto& node : ast.nodes) {
                 if (node->column - 1 > _printedCount) {
-                    std::cout << m_originalStmt.substr(_printedCount, 
+                    std::cout << m_originalStmt.substr(_printedCount,
                                     node->column - 1 - _printedCount);
                 }
 
@@ -423,12 +440,14 @@ public:
     }
 };
 ```
+
 After the initial success in printing AST, I made two improvements: first, the printer code should be aware about line and column (not only a column); and second, it should walk thru the tree (not only print first level nodes). For this I modified IParseTreeIntrface with Gemini help as:
+
 ```cpp
 class IParseTreeVisitor
 {
 public:
-    IParseTreeVisitor(const std::string& originalStmt, void* pContext) 
+    IParseTreeVisitor(const std::string& originalStmt, void* pContext)
                 : _originalStmt(originalStmt), _pContext(pContext) {
         getOffsetsLengths(_originalStmt, _lineOfsLens);
     }
@@ -456,7 +475,9 @@ protected:
     std::vector<std::pair<size_t, size_t>> _lineOfsLens;   // pairs of offsets and lengths
 };
 ```
-And slightly modified the ``Visit`` method itself:
+
+And slightly modified the `Visit` method itself:
+
 ```cpp
 std::pair<size_t, size_t> _printedCount;// index of last printed line, and total chars already printed
 
@@ -491,12 +512,15 @@ void Visit(const CustomAst& ast) override {
     }
 }
 ```
+
 Easy peasy!
 
 ### T-SQL PEG Parser
+
 Since the Postgres grammar was basically skipping most symbols, I made the following changes to support T-SQL syntax:
+
 ```
-• Changed QtIdentifier rule as:  
+• Changed QtIdentifier rule as:
     QtIdentifier      <- '[' [^\]]* ']' / '"' [^"]* '"'
 • Changed EOS rule as:
     EOS <- ';' / 'GO'i           # End of Statement
@@ -505,23 +529,27 @@ Since the Postgres grammar was basically skipping most symbols, I made the follo
 ```
 
 ## Act 2. Internal Representation (IR)
+
 The internal representation should keep information about a SQL statement in dialect-neutral form. It can be used to output SQL into any desired dialect. The IR could be implemented as a tree-like structure, but for the purpose of this small exercise I used a simple structure with the following fields:
 
-| Field	| Purpose |
-| ----- | ------- | 
-| STMT_TYPE&nbsp;_stt | Statement type defined as: `` enum STMT_TYPE { STT_UNKNOWN, STT_ALTER, STT_CREATE, STT_DELETE, STT_DROP, STT_INSERT, STT_SELECT, STT_SET, STT_SHOW, STT_TRUNCATE, STT_UPDATE, STT_START, STT_COMMIT, STT_ROLLBACK };`` |
-| string&nbsp;_text | The SQL Statement without ``LIMIT/TOP`` clause |
-| string&nbsp;_alt_text | The ``LIMIT/TOP`` clause |
-| size_t&nbsp;_alt_pos | Position in _text where to insert _alt_text |
+| Field                  | Purpose                                                                                                                                                                                                              |
+| ---------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| STMT_TYPE&nbsp;\_stt   | Statement type defined as: ` enum STMT_TYPE { STT_UNKNOWN, STT_ALTER, STT_CREATE, STT_DELETE, STT_DROP, STT_INSERT, STT_SELECT, STT_SET, STT_SHOW, STT_TRUNCATE, STT_UPDATE, STT_START, STT_COMMIT, STT_ROLLBACK };` |
+| string&nbsp;\_text     | The SQL Statement without `LIMIT/TOP` clause                                                                                                                                                                         |
+| string&nbsp;\_alt_text | The `LIMIT/TOP` clause                                                                                                                                                                                               |
+| size_t&nbsp;\_alt_pos  | Position in \_text where to insert \_alt_text                                                                                                                                                                        |
 
 <br>
 
 To populate IR I needed helper functions that transform AST nodes into "build IR" instructions. So I defined a function as:
-```cpp 
+
+```cpp
     // returns true if transform succeeded
     bool transform(const CustomAst& ast, OutputInstruction& instruction);
 ```
+
 Where OutputInstruction was defined as:
+
 ```cpp
 enum OUTPUT_TYPE {
     INPLACE,    // replace token inplace
@@ -534,14 +562,18 @@ struct OutputInstruction {
     std::string text;
 };
 ```
+
 I also needed a predicate that defines to which AST node the specified function will be applied:
+
 ```cpp
 struct TransformPredicate {
     unsigned tag;       // e.g. peg::str2tag("QtIdentifier")
     bool (*transform)(const CustomAst& ast, OutputInstruction& instruction);
 };
 ```
+
 The actual transformers for quoted identifiers and LIMIT/TOP clauses were defined as:
+
 ```cpp
 TransformPredicate pgsql_transformers[] = {
     { peg::str2tag("QtIdentifier"), [](const CustomAst& ast, OutputInstruction& instruction) { instruction = { INPLACE, std::string("[") + std::string(ast.token).substr(1, ast.token.size() - 2) + "]" }; return true; }},
@@ -555,7 +587,9 @@ TransformPredicate tsql_transformers[] = {
     { 0, nullptr }
 };
 ```
+
 Very straightforward so far (as expected from a POC). I only needed to apply the instruction to the IR, so I added the following method to StatementIRep class:
+
 ```cpp
 void ProcessInstruction(const OutputInstruction& instruction) {
     switch (instruction.type) {
@@ -565,11 +599,13 @@ void ProcessInstruction(const OutputInstruction& instruction) {
     }
 }
 ```
-The final piece was to include calls to the transformers into the ``Visitor``.
 
+The final piece was to include calls to the transformers into the `Visitor`.
 
 ## Act 3. Implementing output generator and testing
-General solution would be to iterate thru all transformers to generate output. But for POC purposes I modified ``CParseTreeVisitor::Visit()`` to invoke ``transformer[0]`` for tokens (aka terminals) and to invoke ``transformer[1]`` for non-terminals:
+
+General solution would be to iterate thru all transformers to generate output. But for POC purposes I modified `CParseTreeVisitor::Visit()` to invoke `transformer[0]` for tokens (aka terminals) and to invoke `transformer[1]` for non-terminals:
+
 ```cpp
 OutputInstruction instruction;
 if (node->is_token) {
@@ -589,7 +625,8 @@ else if (node->tag == transformers[1].tag && transformers[1].transform(*node, in
 }
 ```
 
-To generate output I implemented ``GetStatementsText()`` in the Visitor as:
+To generate output I implemented `GetStatementsText()` in the Visitor as:
+
 ```cpp
 const std::string GetStatementsText() const {
     std::string text;
@@ -598,11 +635,13 @@ const std::string GetStatementsText() const {
         if (!stmt._alt_text.empty())
             s.insert(stmt._alt_pos != std::string::npos ? stmt._alt_pos : s.length() - 1, stmt._alt_text);
         text.append(s);
-        }    
+        }
         return text;
 }
 ```
-Then I wrote the ``Transpile()`` helper function for the testing. It calls parser on the input, synthesizes the output using the ``Visitor``, and compares the output with the expected text:
+
+Then I wrote the `Transpile()` helper function for the testing. It calls parser on the input, synthesizes the output using the `Visitor`, and compares the output with the expected text:
+
 ```cpp
 bool Transpile(peg::parser& parser, TransformPredicate* transformers, const char* szInput, const char* szExpected) {
     std::shared_ptr<CustomAst> ast;
@@ -633,7 +672,9 @@ bool Transpile(peg::parser& parser, TransformPredicate* transformers, const char
     return false;
 }
 ```
+
 And then I added tests like these:
+
 ```cpp
 TEST(TestCase1, TestName4) {
     EXPECT_TRUE(Transpile(pgsql_parser(), pgsql_transformers, "Select max(\"col1\") FROM \"tbl\" LIMIT 10;", "Select TOP 10 max([col1]) FROM [tbl];"));
@@ -645,8 +686,9 @@ TEST(TestCase1, TestName5) {
 ```
 
 ## Conclusion
-Gemini was making numerous assumptions about my intentions and generated something entirely different from what I wanted. But I definitely improved my skills of telling Gemini what I wanted by asking it to do very primitive assignments. In a few cases, the AI saved me a bit of time, e.g., "write procedure to split text in vector of lines" or "write procedure to iterate all files in specified path and read the files as text." The AI helped teach me about the PEG parser, the Visitor pattern, etc. However, the "vibe coding" is the same as the spherical cow in a vacuum.  
-The idea behind the SQL Transpiler was to start with a very basic parser that extracts identifiers, numbers, and string literals, and then add various rules, such as LIMIT/TOP. This idea could be fruitful, and I would appreciate your feedback (my contact is phoenicyan at gmail dot com). I want to learn alternative ideas for a transpiler, especially from people who have had previous experience in the creation of transpilers.  
+
+Gemini was making numerous assumptions about my intentions and generated something entirely different from what I wanted. But I definitely improved my skills of telling Gemini what I wanted by asking it to do very primitive assignments. In a few cases, the AI saved me a bit of time, e.g., "write procedure to split text in vector of lines" or "write procedure to iterate all files in specified path and read the files as text." The AI helped teach me about the PEG parser, the Visitor pattern, etc. However, the "vibe coding" is the same as the spherical cow in a vacuum.
+The idea behind the SQL Transpiler was to start with a very basic parser that extracts identifiers, numbers, and string literals, and then add various rules, such as LIMIT/TOP. This idea could be fruitful, and I would appreciate your feedback (my contact is phoenicyan at gmail dot com). I want to learn alternative ideas for a transpiler, especially from people who have had previous experience in the creation of transpilers.
 In Part 2, I'm excited to share with you a fully functional transpiler that brings this idea to life.
 
 <!-- Vibe coding fucking sucks. Gemini has all these retarded assumptions about intentions that never occured to me, never generated anything resembling what I wanted. I ended up having to develop an entirely new skillset (becoming one of those PROOMPTERS) just so I could start saving time. But at that point the time investment was so hilariously expensive that this anyway useless for me. I guess the only thing i"m happy about is that a few more trees in the Amazon will probably burn down because of all the water use of my retarded prompts. Thank you for YOUR ATTENTION TO THIS MATTER...
