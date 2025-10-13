@@ -532,15 +532,14 @@ Since the Postgres grammar was basically skipping most symbols, I made the follo
 
 The internal representation should keep information about a SQL statement in dialect-neutral form. It can be used to output SQL into any desired dialect. The IR could be implemented as a tree-like structure, but for the purpose of this small exercise I used a simple structure with the following fields:
 
-| Field                  | Purpose                                                                                                                                                                                                              |
-| ---------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| STMT_TYPE&nbsp;\_stt   | Statement type defined as: ` enum STMT_TYPE { STT_UNKNOWN, STT_ALTER, STT_CREATE, STT_DELETE, STT_DROP, STT_INSERT, STT_SELECT, STT_SET, STT_SHOW, STT_TRUNCATE, STT_UPDATE, STT_START, STT_COMMIT, STT_ROLLBACK };` |
-| string&nbsp;\_text     | The SQL Statement without `LIMIT/TOP` clause                                                                                                                                                                         |
-| string&nbsp;\_alt_text | The `LIMIT/TOP` clause                                                                                                                                                                                               |
-| size_t&nbsp;\_alt_pos  | Position in \_text where to insert \_alt_text                                                                                                                                                                        |
+| Field  | Purpose |
+| ------ | ------- |
+| string&nbsp;\_text     | The SQL Statement without `LIMIT/TOP` clause |
+| string&nbsp;\_alt_text | The `LIMIT/TOP` clause  |
+| size_t&nbsp;\_alt_pos  | Position in \_text where to insert \_alt_text |
+| STMT_TYPE&nbsp;\_stt   | Statement type defined as: `enum STMT_TYPE { STT_UNKNOWN, STT_ALTER, STT_CREATE, STT_DELETE, STT_DROP, STT_INSERT, STT_SELECT, STT_SET, STT_SHOW, STT_TRUNCATE, STT_UPDATE, STT_START, STT_COMMIT, STT_ROLLBACK };` |
 
-<br>
-
+<br/>
 To populate IR I needed helper functions that transform AST nodes into "build IR" instructions. So I defined a function as:
 
 ```cpp
